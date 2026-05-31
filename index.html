@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>승압제 주입속도 계산기</title>
+<style>
+  :root {
+    --bg: #0f1720;
+    --card: #1b2735;
+    --card2: #243446;
+    --line: #324559;
+    --text: #e7edf3;
+    --muted: #9fb0c0;
+    --accent: #4ea1ff;
+    --accent2: #2bd6a5;
+    --warn: #ffb020;
+    --danger: #ff5d5d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "Segoe UI", "Malgun Gothic", system-ui, sans-serif;
+    background: linear-gradient(160deg, #0b1219, #131f2b);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 24px 16px 60px;
+  }
+  .wrap { max-width: 680px; margin: 0 auto; }
+  header h1 { font-size: 22px; margin: 0 0 4px; }
+  header p { color: var(--muted); margin: 0 0 20px; font-size: 13px; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 18px;
+    margin-bottom: 16px;
+  }
+  .card h2 { font-size: 14px; margin: 0 0 14px; color: var(--muted); font-weight: 600; letter-spacing: .3px; text-transform: uppercase; }
+
+  .presets { display: flex; flex-wrap: wrap; gap: 8px; }
+  .preset-btn {
+    background: var(--card2); border: 1px solid var(--line); color: var(--text);
+    padding: 8px 13px; border-radius: 999px; font-size: 13px; cursor: pointer; transition: .15s;
+  }
+  .preset-btn:hover { border-color: var(--accent); }
+  .preset-btn.active { background: var(--accent); border-color: var(--accent); color: #06223f; font-weight: 600; }
+
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .field label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px; }
+  .field input {
+    width: 100%; background: #101a24; border: 1px solid var(--line); color: var(--text);
+    padding: 10px 12px; border-radius: 9px; font-size: 15px; outline: none;
+  }
+  .field input:focus { border-color: var(--accent); }
+  .field .unit { font-size: 11px; color: var(--muted); margin-left: 4px; }
+
+  .conc-note { font-size: 13px; color: var(--muted); margin-top: 12px; }
+  .conc-note b { color: var(--accent2); }
+
+  .toggle { display: flex; gap: 8px; margin-bottom: 14px; }
+  .toggle button {
+    flex: 1; background: var(--card2); border: 1px solid var(--line); color: var(--muted);
+    padding: 9px; border-radius: 9px; cursor: pointer; font-size: 13px;
+  }
+  .toggle button.active { background: var(--accent); border-color: var(--accent); color: #06223f; font-weight: 700; }
+
+  .result {
+    text-align: center; padding: 22px 14px; border-radius: 12px;
+    background: linear-gradient(150deg, #14202c, #1c2c3c); border: 1px solid var(--line);
+  }
+  .result .big { font-size: 42px; font-weight: 800; line-height: 1; }
+  .result .big span { font-size: 18px; color: var(--muted); font-weight: 500; }
+  .result .sub { color: var(--muted); font-size: 13px; margin-top: 8px; }
+
+  .alert { margin-top: 14px; padding: 11px 13px; border-radius: 9px; font-size: 13px; display: none; }
+  .alert.show { display: block; }
+  .alert.ok { background: rgba(43,214,165,.12); border: 1px solid var(--accent2); color: var(--accent2); }
+  .alert.warn { background: rgba(255,176,32,.12); border: 1px solid var(--warn); color: var(--warn); }
+  .alert.danger { background: rgba(255,93,93,.12); border: 1px solid var(--danger); color: var(--danger); }
+
+  .range-bar { height: 7px; background: #0d161e; border-radius: 999px; margin-top: 14px; position: relative; overflow: hidden; }
+  .range-fill { position: absolute; top: 0; bottom: 0; background: linear-gradient(90deg, var(--accent2), var(--warn)); border-radius: 999px; }
+  .range-marker { position: absolute; top: -4px; width: 3px; height: 15px; background: #fff; border-radius: 2px; box-shadow: 0 0 6px rgba(255,255,255,.6); }
+  .range-labels { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-top: 6px; }
+
+  footer { font-size: 11px; color: #6b7d8e; text-align: center; margin-top: 24px; line-height: 1.6; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>💉 승압제 주입속도 계산기</h1>
+    <p>체중기반 용량(mcg/kg/min) ↔ 펌프 주입속도(cc/hr) 양방향 변환</p>
+  </header>
+
+  <div class="card">
+    <h2>약물 선택</h2>
+    <div class="presets" id="presets"></div>
+  </div>
+
+  <div class="card">
+    <h2>희석 / 환자 정보</h2>
+    <div class="grid">
+      <div class="field">
+        <label>약물 총량 <span class="unit">mg</span></label>
+        <input type="number" id="drugMg" step="any" />
+      </div>
+      <div class="field">
+        <label>희석 후 총 볼륨 <span class="unit">mL</span></label>
+        <input type="number" id="volMl" step="any" />
+      </div>
+      <div class="field">
+        <label>환자 체중 <span class="unit">kg</span></label>
+        <input type="number" id="weight" step="any" value="60" />
+      </div>
+      <div class="field">
+        <label>농도 <span class="unit">mcg/mL</span></label>
+        <input type="text" id="conc" readonly style="background:#0a1118;color:var(--accent2);font-weight:700" />
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>계산 방향</h2>
+    <div class="toggle">
+      <button id="modeDose" class="active">용량 → 주입속도</button>
+      <button id="modeRate">주입속도 → 용량</button>
+    </div>
+
+    <div class="field" id="inputDose">
+      <label>목표 용량 <span class="unit">mcg/kg/min</span></label>
+      <input type="number" id="dose" step="any" value="0.1" />
+    </div>
+    <div class="field" id="inputRate" style="display:none">
+      <label>현재 주입속도 <span class="unit">cc/hr</span></label>
+      <input type="number" id="rate" step="any" value="5" />
+    </div>
+
+    <div class="result" style="margin-top:16px">
+      <div class="big" id="resultValue">—</div>
+      <div class="sub" id="resultSub"></div>
+      <div class="range-bar" id="rangeBar" style="display:none">
+        <div class="range-fill" id="rangeFill"></div>
+        <div class="range-marker" id="rangeMarker"></div>
+      </div>
+      <div class="range-labels" id="rangeLabels" style="display:none"></div>
+    </div>
+
+    <div class="alert" id="alert"></div>
+  </div>
+
+  <footer>
+    ⚠️ 본 도구는 <b>교육·보조용</b>입니다. 실제 투약 전 반드시 처방·약제 정보를 독립적으로 검증하고,<br/>
+    고위험 약물은 기관의 Double-check 프로토콜을 따르세요.
+  </footer>
+</div>
+
+<script>
+  // 약물 프리셋: 기본 희석, 권장 용량범위(mcg/kg/min)
+  const DRUGS = {
+    "노르에피네프린": { mg: 4,  ml: 250, min: 0.01, max: 1.0,  note: "노르핀 / Levophed" },
+    "에피네프린":     { mg: 4,  ml: 250, min: 0.01, max: 0.5,  note: "보스민" },
+    "도파민":         { mg: 400,ml: 250, min: 2,    max: 20,   note: "Inotropic/Pressor" },
+    "도부타민":       { mg: 500,ml: 250, min: 2,    max: 20,   note: "Dobutrex" },
+    "페닐레프린":     { mg: 10, ml: 250, min: 0.1,  max: 3.0,  note: "Phenylephrine" },
+  };
+
+  const $ = (id) => document.getElementById(id);
+  let mode = "dose"; // "dose" → rate,  "rate" → dose
+  let activeDrug = null;
+
+  // 프리셋 버튼 생성
+  const presetsEl = $("presets");
+  Object.keys(DRUGS).forEach((name) => {
+    const b = document.createElement("button");
+    b.className = "preset-btn";
+    b.textContent = name;
+    b.onclick = () => selectDrug(name, b);
+    presetsEl.appendChild(b);
+  });
+
+  function selectDrug(name, btn) {
+    activeDrug = name;
+    document.querySelectorAll(".preset-btn").forEach(x => x.classList.remove("active"));
+    btn.classList.add("active");
+    const d = DRUGS[name];
+    $("drugMg").value = d.mg;
+    $("volMl").value = d.ml;
+    calc();
+  }
+
+  // 모드 토글
+  $("modeDose").onclick = () => setMode("dose");
+  $("modeRate").onclick = () => setMode("rate");
+  function setMode(m) {
+    mode = m;
+    $("modeDose").classList.toggle("active", m === "dose");
+    $("modeRate").classList.toggle("active", m === "rate");
+    $("inputDose").style.display = m === "dose" ? "" : "none";
+    $("inputRate").style.display = m === "rate" ? "" : "none";
+    calc();
+  }
+
+  ["drugMg","volMl","weight","dose","rate"].forEach(id => $(id).addEventListener("input", calc));
+
+  function calc() {
+    const mg = parseFloat($("drugMg").value);
+    const ml = parseFloat($("volMl").value);
+    const wt = parseFloat($("weight").value);
+
+    // 농도 mcg/mL
+    let conc = NaN;
+    if (mg > 0 && ml > 0) {
+      conc = (mg * 1000) / ml;
+      $("conc").value = conc.toFixed(1);
+    } else {
+      $("conc").value = "";
+    }
+
+    const valid = conc > 0 && wt > 0;
+    const rEl = $("resultValue"), sEl = $("resultSub");
+
+    if (!valid) {
+      rEl.textContent = "—"; sEl.textContent = "약물량·볼륨·체중을 입력하세요";
+      $("alert").className = "alert"; hideRange(); return;
+    }
+
+    let dose;
+    if (mode === "dose") {
+      dose = parseFloat($("dose").value);
+      if (!(dose >= 0)) { rEl.textContent = "—"; sEl.textContent=""; hideRange(); return; }
+      const rate = (dose * wt * 60) / conc; // mL/hr
+      rEl.innerHTML = rate.toFixed(2) + ' <span>cc/hr</span>';
+      sEl.textContent = `용량 ${dose} mcg/kg/min · 체중 ${wt} kg · 농도 ${conc.toFixed(1)} mcg/mL`;
+    } else {
+      const rate = parseFloat($("rate").value);
+      if (!(rate >= 0)) { rEl.textContent = "—"; sEl.textContent=""; hideRange(); return; }
+      dose = (rate * conc) / (wt * 60); // mcg/kg/min
+      rEl.innerHTML = dose.toFixed(3) + ' <span>mcg/kg/min</span>';
+      sEl.textContent = `주입속도 ${rate} cc/hr · 체중 ${wt} kg · 농도 ${conc.toFixed(1)} mcg/mL`;
+    }
+
+    checkRange(dose);
+  }
+
+  function hideRange() {
+    $("rangeBar").style.display = "none";
+    $("rangeLabels").style.display = "none";
+  }
+
+  function checkRange(dose) {
+    const a = $("alert");
+    if (!activeDrug) {
+      a.className = "alert"; hideRange(); return;
+    }
+    const { min, max } = DRUGS[activeDrug];
+
+    // 범위 바 표시
+    $("rangeBar").style.display = "block";
+    $("rangeLabels").style.display = "flex";
+    const span = max - min;
+    const pct = Math.max(0, Math.min(100, ((dose - min) / span) * 100));
+    $("rangeFill").style.left = "0%";
+    $("rangeFill").style.width = "100%";
+    $("rangeMarker").style.left = pct + "%";
+    $("rangeLabels").innerHTML = `<span>${min}</span><span>권장범위 (mcg/kg/min)</span><span>${max}</span>`;
+
+    if (dose < min) {
+      a.className = "alert warn show";
+      a.innerHTML = `⚠️ <b>권장 하한 미만</b> — 최소 권장 용량은 ${min} mcg/kg/min 입니다.`;
+    } else if (dose > max) {
+      a.className = "alert danger show";
+      a.innerHTML = `🚨 <b>권장 상한 초과</b> — 최대 권장 용량 ${max} mcg/kg/min 을(를) 초과했습니다. 재확인 필요.`;
+    } else {
+      a.className = "alert ok show";
+      a.innerHTML = `✅ 권장 치료범위 내입니다 (${min} ~ ${max} mcg/kg/min).`;
+    }
+  }
+
+  // 기본값: 노르에피네프린 선택
+  selectDrug("노르에피네프린", presetsEl.firstChild);
+</script>
+</body>
+</html>
