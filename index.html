@@ -105,15 +105,15 @@
     <div class="grid">
       <div class="field">
         <label>약물 총량 <span class="unit">mg</span></label>
-        <input type="number" id="drugMg" step="any" />
+        <input type="text" inputmode="decimal" id="drugMg" />
       </div>
       <div class="field">
         <label>희석 후 총 볼륨 <span class="unit">mL</span></label>
-        <input type="number" id="volMl" step="any" />
+        <input type="text" inputmode="decimal" id="volMl" />
       </div>
       <div class="field">
         <label>환자 체중 <span class="unit">kg</span></label>
-        <input type="number" id="weight" step="any" value="60" />
+        <input type="text" inputmode="decimal" id="weight" value="60" />
       </div>
       <div class="field">
         <label>농도 <span class="unit">mcg/mL</span></label>
@@ -131,11 +131,11 @@
 
     <div class="field" id="inputDose">
       <label>목표 용량 <span class="unit">mcg/kg/min</span></label>
-      <input type="number" id="dose" step="any" value="0.1" />
+      <input type="text" inputmode="decimal" id="dose" value="0.1" />
     </div>
     <div class="field" id="inputRate" style="display:none">
       <label>현재 주입속도 <span class="unit">cc/hr</span></label>
-      <input type="number" id="rate" step="any" value="5" />
+      <input type="text" inputmode="decimal" id="rate" value="5" />
     </div>
 
     <div class="result" style="margin-top:16px">
@@ -203,7 +203,21 @@
     calc();
   }
 
-  ["drugMg","volMl","weight","dose","rate"].forEach(id => $(id).addEventListener("input", calc));
+  // 숫자 입력칸: 숫자와 소수점 1개만 허용 (문자·기호 차단)
+  ["drugMg","volMl","weight","dose","rate"].forEach(id => {
+    const el = $(id);
+    el.addEventListener("input", () => {
+      let v = el.value.replace(/[^0-9.]/g, "");      // 숫자·점 외 모두 제거
+      const parts = v.split(".");
+      if (parts.length > 2) v = parts[0] + "." + parts.slice(1).join(""); // 소수점 1개 제한
+      if (v !== el.value) {
+        const pos = el.selectionStart - (el.value.length - v.length);
+        el.value = v;
+        try { el.setSelectionRange(pos, pos); } catch (e) {}
+      }
+      calc();
+    });
+  });
 
   function calc() {
     const mg = parseFloat($("drugMg").value);
